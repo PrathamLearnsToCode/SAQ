@@ -1,0 +1,68 @@
+# SAQ Phase 2 Configuration
+# Syntax-Aware Quantization Fine-tuning
+
+# Model settings
+model_path: "microsoft/Phi-3-mini-4k-instruct"
+quantized_model_path: "ckpts/phi3_nf4"  # Use quantized model from Phase 1
+
+# Training hyperparameters
+learning_rate: 1e-5
+num_epochs: 3
+batch_size: 2  # Small batch for low VRAM
+gradient_accumulation_steps: 8  # Effective batch size = 2 * 8 = 16
+max_length: 512
+max_new_tokens: 256
+
+# SAQ specific settings
+lambda_syntax: 0.5  # Weight for syntax loss
+reward_type: "composite"  # Options: binary_compile, ast_node_ratio, weighted_syntax, composite
+use_tree_sitter: true
+
+# Reward scaling and baseline
+reward_scaling: "normalize"  # Options: normalize, standardize, clip, none
+use_reward_baseline: true
+baseline_decay: 0.99
+
+# Composite reward mixing (for composite reward type)
+alpha_dense: 0.4  # Weight for dense AST reward
+beta_sparse: 0.5  # Weight for sparse compile reward
+# gamma_parse = 1 - alpha - beta (automatically calculated)
+
+# Training method
+use_reinforce: true  # Use REINFORCE-style RL
+use_supervised: false  # Alternative: supervised with syntax regularization
+teacher_forcing_ratio: 0.3
+
+# Memory optimization for low VRAM
+use_fp16: true
+use_gradient_checkpointing: true
+dataloader_num_workers: 0
+
+# Data paths
+data_path: "splits/dev_humaneval.jsonl"
+output_dir: "ckpts/saq_finetuned"
+log_dir: "logs/saq_training"
+
+# Evaluation and checkpointing
+eval_steps: 50  # Log metrics every 50 steps
+save_steps: 100  # Save checkpoint every 100 steps
+
+# Alternative configurations for different scenarios
+# Uncomment and modify as needed:
+
+# For higher VRAM systems:
+# batch_size: 4
+# gradient_accumulation_steps: 4
+
+# For supervised training instead of RL:
+# use_reinforce: false
+# use_supervised: true
+# lambda_syntax: 1.0
+
+# For binary reward only:
+# reward_type: "binary_compile"
+
+# For faster training with less memory:
+# max_length: 256
+# max_new_tokens: 128
+# num_epochs: 1 
