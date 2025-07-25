@@ -31,11 +31,16 @@ class ASTChecker:
     def _init_tree_sitter(self):
         """Initialize tree-sitter parser for Python."""
         try:
-            # This assumes tree-sitter-python is installed
-            # In practice, you might need to build the language first
-            from tree_sitter_python import language
-            self.parser = Parser()
-            self.parser.set_language(language())
+            # Handle different tree-sitter-python versions
+            try:
+                from tree_sitter_python import language
+                self.parser = Parser()
+                self.parser.set_language(language())
+            except ImportError:
+                # Fallback for older versions
+                import tree_sitter_python as tspython
+                self.parser = Parser()
+                self.parser.set_language(tspython.language())
         except Exception as e:
             print(f"Tree-sitter initialization failed: {e}")
             self.use_tree_sitter = False

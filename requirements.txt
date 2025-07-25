@@ -7,15 +7,15 @@ torchaudio==2.2.2
 transformers==4.41.2
 accelerate==0.29.3
 bitsandbytes==0.43.0
+datasets==2.18.0
 
 # Core dependencies
 numpy==1.26.4
-datasets==2.18.0
 tokenizers==0.19.1
 
-# Tree-sitter for AST parsing
+# Tree-sitter for AST parsing (use compatible versions)
 tree-sitter==0.20.4
-tree-sitter-python==0.20.4
+tree-sitter-python==0.21.0
 
 # Utilities
 tqdm==4.66.2
