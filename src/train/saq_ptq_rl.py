@@ -277,9 +277,13 @@ class SAQTrainer:
             logger.error("This usually means the model needs LoRA configuration for quantized training.")
             raise ValueError("No trainable parameters found. Check model setup.")
         
+        # Ensure learning rate is float
+        learning_rate = float(self.config.learning_rate)
+        logger.info(f"Using learning rate: {learning_rate} (converted from {self.config.learning_rate})")
+        
         self.optimizer = torch.optim.AdamW(
             optimizer_params,
-            lr=self.config.learning_rate,
+            lr=learning_rate,
             weight_decay=0.01
         )
         
@@ -291,7 +295,9 @@ class SAQTrainer:
         
         warmup_steps = int(0.1 * num_training_steps)
         logger.info(f"Scheduler setup: {num_training_steps} total steps, {warmup_steps} warmup steps")
-        logger.info(f"Initial learning rate: {self.optimizer.param_groups[0]['lr']}")
+        logger.info(f"Config learning rate: {self.config.learning_rate}")
+        logger.info(f"Config type: {type(self.config.learning_rate)}")
+        logger.info(f"Initial optimizer learning rate: {self.optimizer.param_groups[0]['lr']}")
         
         # If very few warmup steps, set minimum warmup
         if warmup_steps < 1:
