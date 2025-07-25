@@ -169,8 +169,10 @@ class SAQTrainer:
         self.training_metrics = {
             "loss": [],
             "syntax_reward": [],
+            "scaled_reward": [],
             "compile_rate": [],
-            "learning_rate": []
+            "learning_rate": [],
+            "baseline": []
         }
         
         # Reward baseline for variance reduction
@@ -434,7 +436,7 @@ class SAQTrainer:
             self.epoch = epoch
             logger.info(f"Starting epoch {epoch + 1}/{self.config.num_epochs}")
             
-            epoch_metrics = {"loss": [], "syntax_reward": [], "compile_rate": []}
+            epoch_metrics = {"loss": [], "syntax_reward": [], "scaled_reward": [], "compile_rate": []}
             
             for step, batch in enumerate(tqdm(dataloader, desc=f"Epoch {epoch + 1}")):
                 # Training step
