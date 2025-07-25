@@ -18,8 +18,7 @@ echo "📊 Step 2: Evaluate FP16 baseline"
 python scripts/eval_compile_pass.py \
     --model_path $MODEL_PATH \
     --split_file splits/dev_humaneval.jsonl \
-    --out_file results/fp16_baseline \
-    --max_examples 20  # Remove this for full eval
+    --out_file results/fp16_baseline
 
 echo "⚙️  Step 3: Create 4-bit NF4 quantized model"
 python scripts/quant_bnb_nf4.py \
@@ -32,11 +31,8 @@ python scripts/eval_compile_pass.py \
     --model_path ckpts/phi3_nf4 \
     --split_file splits/dev_humaneval.jsonl \
     --load_in_4bit \
-    --out_file results/nf4_baseline \
-    --max_examples 20  # Remove this for full eval
+    --out_file results/nf4_baseline
 
 echo "📈 Phase 1 Complete! Check results in:"
 echo "  - reports/baseline_metrics.json"
-echo "  - results/ directory"
-
-echo "🎯 Next: Remove --max_examples for full evaluation on 164 examples" 
+echo "  - results/ directory" 
