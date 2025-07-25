@@ -7,6 +7,7 @@ torchaudio==2.2.2
 transformers==4.41.2
 accelerate==0.29.3
 bitsandbytes==0.43.0
+peft==0.10.0
 datasets==2.18.0
 
 # Core dependencies

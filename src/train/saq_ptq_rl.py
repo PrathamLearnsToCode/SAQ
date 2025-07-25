@@ -208,6 +208,10 @@ class SAQTrainer:
                 device_map="auto",
                 trust_remote_code=True
             )
+            
+            # Enable training for quantized parameters
+            from peft import prepare_model_for_kbit_training
+            self.model = prepare_model_for_kbit_training(self.model)
         else:
             # Load FP16 model
             self.model = AutoModelForCausalLM.from_pretrained(
@@ -239,6 +243,13 @@ class SAQTrainer:
         # Only optimize parameters that require gradients
         optimizer_params = [p for p in self.model.parameters() if p.requires_grad]
         
+        logger.info(f"Found {len(optimizer_params)} trainable parameters")
+        total_params = sum(p.numel() for p in optimizer_params)
+        logger.info(f"Total trainable parameters: {total_params:,}")
+        
+        if len(optimizer_params) == 0:
+            logger.warning("No trainable parameters found! Model may not be set up for training.")
+        
         self.optimizer = torch.optim.AdamW(
             optimizer_params,
             lr=self.config.learning_rate,
@@ -266,16 +277,31 @@ class SAQTrainer:
                 )
                 inputs = {k: v.to(self.model.device) for k, v in inputs.items()}
                 
-                # Generate
-                outputs = self.model.generate(
-                    **inputs,
-                    max_new_tokens=self.config.max_new_tokens,
-                    do_sample=True,
-                    temperature=temperature,
-                    top_p=0.95,
-                    pad_token_id=self.tokenizer.eos_token_id,
-                    eos_token_id=self.tokenizer.eos_token_id,
-                )
+                # Generate with error handling
+                try:
+                    outputs = self.model.generate(
+                        **inputs,
+                        max_new_tokens=self.config.max_new_tokens,
+                        do_sample=True,
+                        temperature=max(0.1, min(1.0, temperature)),  # Clamp temperature
+                        top_p=0.95,
+                        pad_token_id=self.tokenizer.eos_token_id,
+                        eos_token_id=self.tokenizer.eos_token_id,
+                        repetition_penalty=1.1,  # Prevent repetition
+                    )
+                except RuntimeError as e:
+                    if "probability tensor" in str(e):
+                        # Fallback to greedy decoding
+                        logger.warning(f"Generation failed with sampling, falling back to greedy: {e}")
+                        outputs = self.model.generate(
+                            **inputs,
+                            max_new_tokens=self.config.max_new_tokens,
+                            do_sample=False,
+                            pad_token_id=self.tokenizer.eos_token_id,
+                            eos_token_id=self.tokenizer.eos_token_id,
+                        )
+                    else:
+                        raise e
                 
                 # Decode generated text
                 generated_text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
@@ -329,7 +355,9 @@ class SAQTrainer:
             baseline = np.mean(rewards) if len(rewards) > 1 else 0.0
             advantage = reward - baseline
             
-            reinforce_loss -= seq_log_prob * advantage
+            # Only accumulate loss if we have valid log probabilities
+            if not torch.isnan(seq_log_prob) and not torch.isinf(seq_log_prob):
+                reinforce_loss -= seq_log_prob * advantage
         
         return reinforce_loss / batch_size
     
