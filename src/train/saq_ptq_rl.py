@@ -209,9 +209,34 @@ class SAQTrainer:
                 trust_remote_code=True
             )
             
-            # Enable training for quantized parameters
-            from peft import prepare_model_for_kbit_training
+            # Enable training for quantized parameters with LoRA
+            from peft import prepare_model_for_kbit_training, LoraConfig, get_peft_model
+            
             self.model = prepare_model_for_kbit_training(self.model)
+            
+            # Configure LoRA for fine-tuning
+            lora_config = LoraConfig(
+                r=16,  # Rank
+                lora_alpha=32,  # LoRA scaling parameter
+                target_modules=[
+                    "q_proj",
+                    "k_proj", 
+                    "v_proj",
+                    "o_proj",
+                    "gate_proj",
+                    "up_proj",
+                    "down_proj",
+                ],
+                lora_dropout=0.1,
+                bias="none",
+                task_type="CAUSAL_LM",
+            )
+            
+            self.model = get_peft_model(self.model, lora_config)
+            logger.info("Applied LoRA configuration for quantized model training")
+            
+            # Print trainable parameters info
+            self.model.print_trainable_parameters()
         else:
             # Load FP16 model
             self.model = AutoModelForCausalLM.from_pretrained(
@@ -248,7 +273,9 @@ class SAQTrainer:
         logger.info(f"Total trainable parameters: {total_params:,}")
         
         if len(optimizer_params) == 0:
-            logger.warning("No trainable parameters found! Model may not be set up for training.")
+            logger.error("No trainable parameters found! Cannot proceed with training.")
+            logger.error("This usually means the model needs LoRA configuration for quantized training.")
+            raise ValueError("No trainable parameters found. Check model setup.")
         
         self.optimizer = torch.optim.AdamW(
             optimizer_params,

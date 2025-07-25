@@ -4,6 +4,7 @@
 # Model settings
 model_path: "microsoft/Phi-3-mini-4k-instruct"
 quantized_model_path: "ckpts/phi3_nf4"  # Use quantized model from Phase 1
+# quantized_model_path: null  # Uncomment to train FP16 model instead
 
 # Training hyperparameters
 learning_rate: 0.00001  # 1e-5 as decimal to avoid parsing issues
