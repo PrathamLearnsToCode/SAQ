@@ -289,8 +289,18 @@ class SAQTrainer:
             num_training_steps=num_training_steps
         )
         
-        logger.info(f"Scheduler setup: {num_training_steps} total steps, {int(0.1 * num_training_steps)} warmup steps")
+        warmup_steps = int(0.1 * num_training_steps)
+        logger.info(f"Scheduler setup: {num_training_steps} total steps, {warmup_steps} warmup steps")
         logger.info(f"Initial learning rate: {self.optimizer.param_groups[0]['lr']}")
+        
+        # If very few warmup steps, set minimum warmup
+        if warmup_steps < 1:
+            logger.warning(f"Very few warmup steps ({warmup_steps}), setting minimum warmup to 1")
+            self.scheduler = get_linear_schedule_with_warmup(
+                self.optimizer,
+                num_warmup_steps=1,
+                num_training_steps=max(2, num_training_steps)
+            )
     
     def generate_code(self, prompts: List[str], temperature: float = 0.7) -> List[str]:
         """Generate code completions for given prompts."""
@@ -387,6 +397,8 @@ class SAQTrainer:
             
             # Only accumulate loss if we have valid log probabilities
             if not torch.isnan(seq_log_prob) and not torch.isinf(seq_log_prob):
+                # REINFORCE loss: -log_prob * advantage
+                # Negative loss is normal when policy improves
                 reinforce_loss -= seq_log_prob * advantage
         
         return reinforce_loss / batch_size
@@ -528,12 +540,12 @@ class SAQTrainer:
                         logger.info(f"After first optimizer step - Learning rate: {current_lr}")
                 
                 # Logging
-                if self.global_step % self.config.eval_steps == 0:
+                if (step + 1) % self.config.eval_steps == 0 or step == 0:
                     avg_metrics = {k: np.mean(v[-10:]) for k, v in self.training_metrics.items() if v}
-                    logger.info(f"Step {self.global_step}: {avg_metrics}")
+                    logger.info(f"Batch {step+1}, Global Step {self.global_step}: {avg_metrics}")
                 
                 # Save checkpoint
-                if self.global_step % self.config.save_steps == 0:
+                if self.global_step > 0 and self.global_step % self.config.save_steps == 0:
                     self.save_checkpoint()
             
             # Epoch summary
