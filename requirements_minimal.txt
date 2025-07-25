@@ -1,0 +1,15 @@
+# Minimal requirements for SAQ Phase 1
+# Use existing torch/transformers if available
+
+# Essential for data loading
+datasets
+
+# Essential for quantization (if not already installed)
+bitsandbytes
+
+# Essential utilities
+tqdm
+
+# Optional: tree-sitter (fallback to ast module if not available)
+# tree-sitter
+# tree-sitter-python 

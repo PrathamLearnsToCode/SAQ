@@ -10,7 +10,7 @@ try:
     TREE_SITTER_AVAILABLE = True
 except ImportError:
     TREE_SITTER_AVAILABLE = False
-    print("Warning: tree-sitter not available. Using Python ast module only.")
+    # Don't print warning by default - will fallback to ast module
 
 
 class ASTChecker:
