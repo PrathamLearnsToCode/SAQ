@@ -498,13 +498,25 @@ class SAQTrainer:
         )
         
         # Calculate total training steps
-        steps_per_epoch = len(dataloader) // self.config.gradient_accumulation_steps
+        batches_per_epoch = len(dataloader)
+        steps_per_epoch = batches_per_epoch // self.config.gradient_accumulation_steps
         total_steps = steps_per_epoch * self.config.num_epochs
         
-        logger.info(f"Training setup: {len(dataloader)} batches per epoch")
+        print(f"DEBUG: Training setup calculation:")
+        print(f"  - Batches per epoch: {batches_per_epoch}")
+        print(f"  - Gradient accumulation steps: {self.config.gradient_accumulation_steps}")
+        print(f"  - Effective optimizer steps per epoch: {steps_per_epoch}")
+        print(f"  - Total epochs: {self.config.num_epochs}")
+        print(f"  - Total optimizer steps: {total_steps}")
+        
+        logger.info(f"Training setup: {batches_per_epoch} batches per epoch")
         logger.info(f"Gradient accumulation: {self.config.gradient_accumulation_steps} steps")
         logger.info(f"Effective steps per epoch: {steps_per_epoch}")
         logger.info(f"Total training steps: {total_steps}")
+        
+        if total_steps == 0:
+            logger.error("Total training steps is 0! This will cause scheduler issues.")
+            total_steps = 1  # Minimum to prevent errors
         
         self.setup_optimizer_and_scheduler(total_steps)
         
@@ -526,7 +538,9 @@ class SAQTrainer:
                     self.training_metrics[key].append(value)
                 
                 # Gradient accumulation
-                if (step + 1) % self.config.gradient_accumulation_steps == 0:
+                should_step = (step + 1) % self.config.gradient_accumulation_steps == 0
+                if should_step:
+                    print(f"DEBUG: Taking optimizer step at batch {step+1}")
                     torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
                     self.optimizer.step()
                     if self.scheduler:
@@ -536,8 +550,9 @@ class SAQTrainer:
                     
                     # Log after optimizer step
                     current_lr = self.optimizer.param_groups[0]['lr']
-                    if self.global_step == 1:
-                        logger.info(f"After first optimizer step - Learning rate: {current_lr}")
+                    print(f"DEBUG: After optimizer step {self.global_step} - Learning rate: {current_lr}")
+                    if self.global_step <= 3:
+                        logger.info(f"Optimizer step {self.global_step} - Learning rate: {current_lr}")
                 
                 # Logging
                 if (step + 1) % self.config.eval_steps == 0 or step == 0:
