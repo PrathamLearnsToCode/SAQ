@@ -1,0 +1,32 @@
+# Core PyTorch and CUDA
+torch==2.2.2
+torchvision==0.17.2
+torchaudio==2.2.2
+
+# Transformers ecosystem
+transformers==4.41.2
+accelerate==0.29.3
+bitsandbytes==0.43.0
+
+# Core dependencies
+numpy==1.26.4
+datasets==2.18.0
+tokenizers==0.19.1
+
+# Tree-sitter for AST parsing
+tree-sitter==0.20.4
+tree-sitter-python==0.20.4
+
+# Utilities
+tqdm==4.66.2
+pandas==2.2.1
+matplotlib==3.8.3
+seaborn==0.13.2
+
+# Development
+pytest==8.1.1
+black==24.3.0
+flake8==7.0.0
+
+# Optional AWQ (pin to avoid conflicts)
+# autoawq==0.1.7  # Uncomment if using AWQ 
