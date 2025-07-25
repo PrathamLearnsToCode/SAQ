@@ -57,7 +57,10 @@ class SyntaxRewardCalculator:
         elif self.reward_type == RewardType.WEIGHTED_SYNTAX:
             return self._weighted_syntax_reward(code)
         elif self.reward_type == RewardType.COMPOSITE:
-            return self._composite_reward(code, prompt)
+            # Use default alpha/beta if not specified in constructor
+            alpha = getattr(self, 'alpha_dense', 0.5)
+            beta = getattr(self, 'beta_sparse', 0.5)
+            return self._composite_reward(code, prompt, alpha, beta)
         else:
             raise ValueError(f"Unknown reward type: {self.reward_type}")
     

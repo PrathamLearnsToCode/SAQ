@@ -34,15 +34,24 @@ class ASTChecker:
             # Handle different tree-sitter-python versions
             try:
                 from tree_sitter_python import language
+                lang = language()
+                if hasattr(lang, '__call__'):
+                    lang = lang()  # Call if it's a function
                 self.parser = Parser()
-                self.parser.set_language(language())
-            except ImportError:
-                # Fallback for older versions
-                import tree_sitter_python as tspython
-                self.parser = Parser()
-                self.parser.set_language(tspython.language())
+                self.parser.set_language(lang)
+            except (ImportError, AttributeError, TypeError):
+                # Fallback for older versions or different APIs
+                try:
+                    import tree_sitter_python as tspython
+                    lang = tspython.language()
+                    if hasattr(lang, '__call__'):
+                        lang = lang()
+                    self.parser = Parser()
+                    self.parser.set_language(lang)
+                except:
+                    raise Exception("Could not initialize tree-sitter with any method")
         except Exception as e:
-            print(f"Tree-sitter initialization failed: {e}")
+            # Silently fall back to AST - don't print warning every time
             self.use_tree_sitter = False
     
     def check_syntax(self, code: str) -> Tuple[bool, Optional[str]]:

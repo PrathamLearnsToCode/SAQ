@@ -86,6 +86,19 @@ class SAQConfig:
         """Load config from YAML file."""
         with open(yaml_path, 'r') as f:
             config_dict = yaml.safe_load(f)
+        
+        # Ensure numeric types are correct
+        if 'learning_rate' in config_dict:
+            config_dict['learning_rate'] = float(config_dict['learning_rate'])
+        if 'lambda_syntax' in config_dict:
+            config_dict['lambda_syntax'] = float(config_dict['lambda_syntax'])
+        if 'alpha_dense' in config_dict:
+            config_dict['alpha_dense'] = float(config_dict['alpha_dense'])
+        if 'beta_sparse' in config_dict:
+            config_dict['beta_sparse'] = float(config_dict['beta_sparse'])
+        if 'baseline_decay' in config_dict:
+            config_dict['baseline_decay'] = float(config_dict['baseline_decay'])
+            
         return cls(**config_dict)
 
 
@@ -213,6 +226,11 @@ class SAQTrainer:
             reward_type=self.config.reward_type,
             use_tree_sitter=self.config.use_tree_sitter
         )
+        
+        # Set composite reward mixing parameters
+        if self.config.reward_type == "composite":
+            self.reward_calculator.alpha_dense = self.config.alpha_dense
+            self.reward_calculator.beta_sparse = self.config.beta_sparse
     
     def setup_optimizer_and_scheduler(self, num_training_steps: int):
         """Setup optimizer and learning rate scheduler."""

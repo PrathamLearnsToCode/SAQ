@@ -6,7 +6,7 @@ model_path: "microsoft/Phi-3-mini-4k-instruct"
 quantized_model_path: "ckpts/phi3_nf4"  # Use quantized model from Phase 1
 
 # Training hyperparameters
-learning_rate: 1e-5
+learning_rate: 0.00001  # 1e-5 as decimal to avoid parsing issues
 num_epochs: 3
 batch_size: 2  # Small batch for low VRAM
 gradient_accumulation_steps: 8  # Effective batch size = 2 * 8 = 16
