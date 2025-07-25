@@ -299,13 +299,17 @@ class SAQTrainer:
         logger.info(f"Config type: {type(self.config.learning_rate)}")
         logger.info(f"Initial optimizer learning rate: {self.optimizer.param_groups[0]['lr']}")
         
-        # If very few warmup steps, set minimum warmup
+        # Create scheduler - if warmup is 0, start with full LR immediately
         if warmup_steps < 1:
-            logger.warning(f"Very few warmup steps ({warmup_steps}), setting minimum warmup to 1")
+            logger.warning(f"Very few warmup steps ({warmup_steps}), using no warmup")
+            # Use a constant scheduler instead of warmup
+            from transformers import get_constant_schedule
+            self.scheduler = get_constant_schedule(self.optimizer)
+        else:
             self.scheduler = get_linear_schedule_with_warmup(
                 self.optimizer,
-                num_warmup_steps=1,
-                num_training_steps=max(2, num_training_steps)
+                num_warmup_steps=warmup_steps,
+                num_training_steps=num_training_steps
             )
     
     def generate_code(self, prompts: List[str], temperature: float = 0.7) -> List[str]:
@@ -396,10 +400,9 @@ class SAQTrainer:
                 if seq_input_ids[t] != self.tokenizer.pad_token_id:
                     seq_log_prob += seq_log_probs[t-1, seq_input_ids[t]]
             
-            # REINFORCE: -log_prob * (reward - baseline)
-            # Using simple moving average as baseline
-            baseline = np.mean(rewards) if len(rewards) > 1 else 0.0
-            advantage = reward - baseline
+            # REINFORCE: -log_prob * advantage
+            # Advantage is already computed with proper baseline
+            advantage = rewards[i]  # This is already advantage (reward - baseline)
             
             # Only accumulate loss if we have valid log probabilities
             if not torch.isnan(seq_log_prob) and not torch.isinf(seq_log_prob):
@@ -443,7 +446,7 @@ class SAQTrainer:
         # Generate codes
         generated_codes = self.generate_code(prompts)
         
-        # Calculate syntax rewards
+        # Step 1: Calculate raw syntax rewards
         raw_rewards = calculate_batch_rewards(
             generated_codes,
             prompts,
@@ -451,18 +454,22 @@ class SAQTrainer:
             use_tree_sitter=self.config.use_tree_sitter
         )
         
-        # Apply reward scaling
-        if self.config.reward_scaling != "none":
-            scaled_rewards = scale_rewards(raw_rewards, method=self.config.reward_scaling)
-        else:
-            scaled_rewards = raw_rewards
-        
-        # Apply baseline normalization for RL
+        # Step 2: Apply baseline normalization first (for RL)
         if self.reward_baseline and self.config.use_reinforce:
-            advantages = self.reward_baseline.update(scaled_rewards)
-            rewards = advantages
+            advantages = self.reward_baseline.update(raw_rewards)
+            baseline_value = self.reward_baseline.get_baseline()
         else:
-            rewards = scaled_rewards
+            advantages = raw_rewards
+            baseline_value = 0.0
+        
+        # Step 3: Apply reward scaling to advantages
+        if self.config.reward_scaling != "none":
+            scaled_rewards = scale_rewards(advantages, method=self.config.reward_scaling)
+        else:
+            scaled_rewards = advantages
+        
+        # Use scaled rewards for training
+        rewards = scaled_rewards
         
         # Compute loss based on training method
         if self.config.use_reinforce:
@@ -477,7 +484,7 @@ class SAQTrainer:
         # Calculate metrics
         compile_rate = sum(1 for code in generated_codes if compile_ok(code)) / len(generated_codes)
         avg_raw_reward = np.mean(raw_rewards)
-        avg_scaled_reward = np.mean(scaled_rewards) if 'scaled_rewards' in locals() else avg_raw_reward
+        avg_scaled_reward = np.mean(scaled_rewards)
         
         metrics = {
             "loss": loss.item() * self.config.gradient_accumulation_steps,
@@ -485,7 +492,7 @@ class SAQTrainer:
             "scaled_reward": avg_scaled_reward,
             "compile_rate": compile_rate,
             "learning_rate": self.optimizer.param_groups[0]['lr'] if self.optimizer else self.config.learning_rate,
-            "baseline": self.reward_baseline.get_baseline() if self.reward_baseline else 0.0
+            "baseline": baseline_value
         }
         
         return metrics
@@ -534,6 +541,11 @@ class SAQTrainer:
             epoch_metrics = {"loss": [], "syntax_reward": [], "scaled_reward": [], "compile_rate": []}
             
             for step, batch in enumerate(tqdm(dataloader, desc=f"Epoch {epoch + 1}")):
+                # Debug gradient accumulation timing
+                if step < 10:  # Only for first few steps
+                    should_step_debug = (step + 1) % self.config.gradient_accumulation_steps == 0
+                    print(f"DEBUG: Batch {step+1}, should take optimizer step: {should_step_debug}")
+                
                 # Training step
                 step_metrics = self.train_step(batch)
                 
@@ -557,8 +569,10 @@ class SAQTrainer:
                     # Log after optimizer step
                     current_lr = self.optimizer.param_groups[0]['lr']
                     print(f"DEBUG: After optimizer step {self.global_step} - Learning rate: {current_lr}")
-                    if self.global_step <= 3:
+                    if self.global_step <= 5:
                         logger.info(f"Optimizer step {self.global_step} - Learning rate: {current_lr}")
+                        if current_lr == 0.0:
+                            logger.error(f"Learning rate is still 0.0 after step {self.global_step}!")
                 
                 # Logging
                 if (step + 1) % self.config.eval_steps == 0 or step == 0:
