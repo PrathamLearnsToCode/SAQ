@@ -288,6 +288,9 @@ class SAQTrainer:
             num_warmup_steps=int(0.1 * num_training_steps),
             num_training_steps=num_training_steps
         )
+        
+        logger.info(f"Scheduler setup: {num_training_steps} total steps, {int(0.1 * num_training_steps)} warmup steps")
+        logger.info(f"Initial learning rate: {self.optimizer.param_groups[0]['lr']}")
     
     def generate_code(self, prompts: List[str], temperature: float = 0.7) -> List[str]:
         """Generate code completions for given prompts."""
@@ -463,7 +466,7 @@ class SAQTrainer:
             "syntax_reward": avg_raw_reward,
             "scaled_reward": avg_scaled_reward,
             "compile_rate": compile_rate,
-            "learning_rate": self.scheduler.get_last_lr()[0] if self.scheduler else self.config.learning_rate,
+            "learning_rate": self.optimizer.param_groups[0]['lr'] if self.optimizer else self.config.learning_rate,
             "baseline": self.reward_baseline.get_baseline() if self.reward_baseline else 0.0
         }
         
@@ -483,7 +486,14 @@ class SAQTrainer:
         )
         
         # Calculate total training steps
-        total_steps = len(dataloader) * self.config.num_epochs // self.config.gradient_accumulation_steps
+        steps_per_epoch = len(dataloader) // self.config.gradient_accumulation_steps
+        total_steps = steps_per_epoch * self.config.num_epochs
+        
+        logger.info(f"Training setup: {len(dataloader)} batches per epoch")
+        logger.info(f"Gradient accumulation: {self.config.gradient_accumulation_steps} steps")
+        logger.info(f"Effective steps per epoch: {steps_per_epoch}")
+        logger.info(f"Total training steps: {total_steps}")
+        
         self.setup_optimizer_and_scheduler(total_steps)
         
         # Training loop
@@ -511,6 +521,11 @@ class SAQTrainer:
                         self.scheduler.step()
                     self.optimizer.zero_grad()
                     self.global_step += 1
+                    
+                    # Log after optimizer step
+                    current_lr = self.optimizer.param_groups[0]['lr']
+                    if self.global_step == 1:
+                        logger.info(f"After first optimizer step - Learning rate: {current_lr}")
                 
                 # Logging
                 if self.global_step % self.config.eval_steps == 0:
