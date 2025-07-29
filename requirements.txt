@@ -33,6 +33,7 @@ flake8==7.0.0
 autoawq==0.2.4
 auto-gptq==0.7.1
 optimum==1.17.1
+smoothquant==0.2.0
 
 # Optional AWQ (pin to avoid conflicts)
 # autoawq==0.1.7  # Uncomment if using AWQ 

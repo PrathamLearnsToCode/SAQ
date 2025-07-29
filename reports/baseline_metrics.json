@@ -1,0 +1,8 @@
+{
+  "phi3_nf4": {
+    "compile_pass@1": 0.0,
+    "timestamp": "2024-07-30 00:00:00",
+    "method": "BitsAndBytes NF4 4-bit",
+    "note": "Baseline BitsAndBytes quantization"
+  }
+} 
