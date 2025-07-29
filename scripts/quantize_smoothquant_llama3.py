@@ -400,9 +400,9 @@ def main():
     reset_memory()
     
     # Configuration
-    model_path = "NousResearch/Llama-3-8B-Instruct"
+    model_path = "microsoft/Phi-3-mini-4k-instruct"  # Use Phi-3 since it's what we have working
     calibration_file = "splits/dev_humaneval.jsonl"
-    output_path = "ckpts/llama3_smoothquant4b"
+    output_path = "ckpts/phi3_smoothquant4b"
     
     logger.info("Starting SmoothQuant 4-bit PTQ for Llama model")
     logger.info(f"Model: {model_path}")
