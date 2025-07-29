@@ -4,10 +4,10 @@ torchvision==0.17.2
 torchaudio==2.2.2
 
 # Transformers ecosystem
-transformers==4.41.2
+transformers==4.38.2
 accelerate==0.29.3
 bitsandbytes==0.43.0
-peft==0.10.0
+peft==0.9.0
 datasets==2.18.0
 
 # Core dependencies
@@ -32,7 +32,7 @@ flake8==7.0.0
 # Quantization libraries for PTQ baselines
 autoawq==0.2.4
 auto-gptq==0.7.1
-optimum[gptq]==1.19.2
+optimum==1.17.1
 
 # Optional AWQ (pin to avoid conflicts)
 # autoawq==0.1.7  # Uncomment if using AWQ 
