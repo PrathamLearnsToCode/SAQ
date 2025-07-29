@@ -29,5 +29,10 @@ pytest==8.1.1
 black==24.3.0
 flake8==7.0.0
 
+# Quantization libraries for PTQ baselines
+autoawq==0.2.4
+auto-gptq==0.7.1
+optimum[gptq]==1.19.2
+
 # Optional AWQ (pin to avoid conflicts)
 # autoawq==0.1.7  # Uncomment if using AWQ 
