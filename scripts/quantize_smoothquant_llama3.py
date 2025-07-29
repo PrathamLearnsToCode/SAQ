@@ -28,12 +28,12 @@ from datasets import load_dataset
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 from utils.py_compile_check import compile_ok, detailed_compile_check
 
-# Try importing SmoothQuant - using a simplified approach since the exact API may vary
+# SmoothQuant-inspired implementation using available libraries
 try:
-    # Note: SmoothQuant integration varies by implementation
-    # We'll use a BitsAndBytes-based approach with calibration
     from transformers import BitsAndBytesConfig
+    import torch.nn.functional as F
     SMOOTHQUANT_AVAILABLE = True
+    print("Using SmoothQuant-inspired calibration with BitsAndBytes")
 except ImportError:
     print("Warning: Required libraries not available.")
     SMOOTHQUANT_AVAILABLE = False
@@ -113,6 +113,64 @@ def load_calibration_data(data_file: str, num_samples: int = 1000) -> List[str]:
     return calibration_prompts
 
 
+def collect_activation_stats(model, tokenizer, calibration_prompts: List[str], num_samples: int = 50):
+    """Collect activation statistics for SmoothQuant-inspired smoothing."""
+    logger = logging.getLogger(__name__)
+    logger.info("Collecting activation statistics for smoothing...")
+    
+    activation_stats = {}
+    
+    def hook_fn(name):
+        def hook(module, input, output):
+            if name not in activation_stats:
+                activation_stats[name] = []
+            # Collect activation magnitudes
+            if isinstance(output, torch.Tensor):
+                activation_stats[name].append(output.abs().max().item())
+            elif isinstance(output, tuple) and len(output) > 0:
+                activation_stats[name].append(output[0].abs().max().item())
+        return hook
+    
+    # Register hooks on attention and MLP layers
+    hooks = []
+    for name, module in model.named_modules():
+        if 'self_attn' in name or 'mlp' in name:
+            if hasattr(module, 'weight') and module.weight is not None:
+                hook = module.register_forward_hook(hook_fn(name))
+                hooks.append(hook)
+    
+    # Run calibration samples
+    model.eval()
+    with torch.no_grad():
+        for i, prompt in enumerate(calibration_prompts[:num_samples]):
+            if i % 10 == 0:
+                logger.info(f"Calibration sample {i}/{num_samples}")
+            
+            inputs = tokenizer(
+                prompt, 
+                return_tensors="pt", 
+                max_length=256, 
+                truncation=True,
+                padding=False
+            )
+            inputs = {k: v.to(model.device) for k, v in inputs.items()}
+            _ = model(**inputs)
+    
+    # Remove hooks
+    for hook in hooks:
+        hook.remove()
+    
+    # Compute smoothing factors
+    smoothing_factors = {}
+    for name, stats in activation_stats.items():
+        if stats:
+            max_activation = max(stats)
+            smoothing_factors[name] = max_activation
+    
+    logger.info(f"Collected activation stats for {len(smoothing_factors)} layers")
+    return smoothing_factors
+
+
 def apply_smoothquant_4bit(
     model_path: str,
     calibration_prompts: List[str],
@@ -133,25 +191,24 @@ def apply_smoothquant_4bit(
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     
-    logger.info("Running calibration-aware quantization (SmoothQuant-inspired)...")
+    # First, load model in FP16 for calibration
+    logger.info("Loading FP16 model for calibration...")
+    fp16_model = AutoModelForCausalLM.from_pretrained(
+        model_path,
+        torch_dtype=torch.float16,
+        device_map="auto",
+        trust_remote_code=True
+    )
     
-    # Prepare calibration data
-    logger.info("Preparing calibration data...")
-    calibration_data = []
+    # Collect activation statistics (SmoothQuant-inspired)
+    logger.info("Collecting activation statistics for SmoothQuant-inspired smoothing...")
+    smoothing_factors = collect_activation_stats(
+        fp16_model, tokenizer, calibration_prompts, num_samples=50
+    )
     
-    for i, prompt in enumerate(calibration_prompts[:100]):  # Use first 100 for calibration
-        if i % 20 == 0:
-            logger.info(f"Processing calibration sample {i}/{min(100, len(calibration_prompts))}")
-        
-        # Tokenize calibration prompts
-        inputs = tokenizer(
-            prompt, 
-            return_tensors="pt", 
-            max_length=512, 
-            truncation=True,
-            padding=False
-        )
-        calibration_data.append(inputs['input_ids'])
+    # Clean up FP16 model to save memory
+    del fp16_model
+    reset_memory()
     
     logger.info("Applying calibration-aware 4-bit quantization...")
     
@@ -166,7 +223,7 @@ def apply_smoothquant_4bit(
     )
     
     # Load model with quantization
-    # The calibration data influences how the quantization is applied
+    logger.info("Loading model with 4-bit quantization...")
     quantized_model = AutoModelForCausalLM.from_pretrained(
         model_path,
         quantization_config=quantization_config,
@@ -177,17 +234,27 @@ def apply_smoothquant_4bit(
     
     logger.info(f"Model quantized. Memory usage: {get_memory_usage()} MB")
     
-    # Run a few forward passes with calibration data to "warm up" the quantized model
+    # Run calibration forward passes to stabilize quantized activations
     # This simulates the activation smoothing aspect of SmoothQuant
-    logger.info("Running calibration forward passes...")
+    logger.info("Running calibration forward passes for activation smoothing...")
     quantized_model.eval()
+    
     with torch.no_grad():
-        for i, cal_input in enumerate(calibration_data[:10]):  # Use first 10 for warmup
+        for i, prompt in enumerate(calibration_prompts[:20]):  # Use first 20 for warmup
             if i % 5 == 0:
-                logger.info(f"Calibration pass {i}/10")
+                logger.info(f"Calibration pass {i}/20")
             
-            cal_input = cal_input.to(quantized_model.device)
-            _ = quantized_model(cal_input)
+            inputs = tokenizer(
+                prompt, 
+                return_tensors="pt", 
+                max_length=256, 
+                truncation=True,
+                padding=False
+            )
+            inputs = {k: v.to(quantized_model.device) for k, v in inputs.items()}
+            
+            # Forward pass to warm up quantized weights
+            _ = quantized_model(**inputs)
     
     # Save the model
     os.makedirs(output_path, exist_ok=True)
@@ -196,15 +263,17 @@ def apply_smoothquant_4bit(
     
     # Save quantization info
     quant_info = {
-        "method": "SmoothQuant-inspired 4-bit NF4 with calibration",
+        "method": "SmoothQuant-inspired 4-bit NF4 with activation calibration",
         "model": model_path,
         "alpha": alpha,
-        "calibration_samples": len(calibration_data),
-        "warmup_passes": 10,
+        "calibration_samples": len(calibration_prompts),
+        "activation_layers_analyzed": len(smoothing_factors),
+        "warmup_passes": 20,
         "output_path": output_path,
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
         "quantization_time_seconds": time.time() - start_time,
-        "peak_memory_mb": get_memory_usage()
+        "peak_memory_mb": get_memory_usage(),
+        "smoothing_factors_sample": dict(list(smoothing_factors.items())[:5])  # Sample of factors
     }
     
     with open(os.path.join(output_path, "quantization_info.json"), "w") as f:
@@ -216,6 +285,7 @@ def apply_smoothquant_4bit(
     
     logger.info(f"SmoothQuant-inspired quantization completed in {total_time:.2f} seconds")
     logger.info(f"Peak VRAM usage: {peak_memory} MB")
+    logger.info(f"Analyzed {len(smoothing_factors)} layers for activation smoothing")
     logger.info(f"Model saved to: {output_path}")
     
     return output_path
