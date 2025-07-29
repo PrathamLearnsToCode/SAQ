@@ -301,16 +301,38 @@ def evaluate_model_on_dataset(model_path: str, dataset_file: str, k_values: List
     """Evaluate model on a dataset for compile-pass@k."""
     print(f"Evaluating {model_path} on {dataset_file}")
     
-    # Load model
-    if "awq" in model_path.lower() and AWQ_AVAILABLE:
-        model = AutoAWQForCausalLM.from_quantized(model_path, device_map="auto")
-        tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
-    elif "gptq" in model_path.lower() and GPTQ_AVAILABLE:
-        model = AutoGPTQForCausalLM.from_quantized(model_path, device_map="auto")
-        tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
-    else:
-        # Load as regular model (FP16 or quantized via transformers)
-        model, tokenizer = load_fp16_model(model_path)
+    try:
+        # Try loading as AWQ first
+        if "awq" in model_path.lower() and AWQ_AVAILABLE:
+            try:
+                model = AutoAWQForCausalLM.from_quantized(model_path, device_map="auto")
+                tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+            except TypeError as e:
+                if "isn't supported yet" in str(e):
+                    print("Model not supported by AWQ, loading as regular quantized model")
+                    model = AutoModelForCausalLM.from_pretrained(model_path, device_map="auto", trust_remote_code=True)
+                    tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+                else:
+                    raise e
+        # Try loading as GPTQ
+        elif "gptq" in model_path.lower() and GPTQ_AVAILABLE:
+            try:
+                model = AutoGPTQForCausalLM.from_quantized(model_path, device_map="auto")
+                tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+            except TypeError as e:
+                if "isn't supported yet" in str(e):
+                    print("Model not supported by GPTQ, loading as regular quantized model")
+                    model = AutoModelForCausalLM.from_pretrained(model_path, device_map="auto", trust_remote_code=True)
+                    tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+                else:
+                    raise e
+        else:
+            # Load as regular model (FP16 or quantized via transformers)
+            model = AutoModelForCausalLM.from_pretrained(model_path, device_map="auto", trust_remote_code=True)
+            tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+    except Exception as e:
+        print(f"Error loading model: {e}")
+        return {}
     
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
@@ -379,15 +401,38 @@ def measure_latency(model_path: str, num_samples: int = 10) -> float:
     """Measure average inference latency."""
     print(f"Measuring latency for {model_path}")
     
-    # Load model
-    if "awq" in model_path.lower() and AWQ_AVAILABLE:
-        model = AutoAWQForCausalLM.from_quantized(model_path, device_map="auto")
-        tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
-    elif "gptq" in model_path.lower() and GPTQ_AVAILABLE:
-        model = AutoGPTQForCausalLM.from_quantized(model_path, device_map="auto")
-        tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
-    else:
-        model, tokenizer = load_fp16_model(model_path)
+    try:
+        # Try loading as AWQ first
+        if "awq" in model_path.lower() and AWQ_AVAILABLE:
+            try:
+                model = AutoAWQForCausalLM.from_quantized(model_path, device_map="auto")
+                tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+            except TypeError as e:
+                if "isn't supported yet" in str(e):
+                    print("Model not supported by AWQ, loading as regular quantized model")
+                    model = AutoModelForCausalLM.from_pretrained(model_path, device_map="auto", trust_remote_code=True)
+                    tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+                else:
+                    raise e
+        # Try loading as GPTQ
+        elif "gptq" in model_path.lower() and GPTQ_AVAILABLE:
+            try:
+                model = AutoGPTQForCausalLM.from_quantized(model_path, device_map="auto")
+                tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+            except TypeError as e:
+                if "isn't supported yet" in str(e):
+                    print("Model not supported by GPTQ, loading as regular quantized model")
+                    model = AutoModelForCausalLM.from_pretrained(model_path, device_map="auto", trust_remote_code=True)
+                    tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+                else:
+                    raise e
+        else:
+            # Load as regular model (FP16 or quantized via transformers)
+            model = AutoModelForCausalLM.from_pretrained(model_path, device_map="auto", trust_remote_code=True)
+            tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+    except Exception as e:
+        print(f"Error loading model: {e}")
+        return 0.0
     
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
