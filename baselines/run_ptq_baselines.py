@@ -16,7 +16,7 @@ import gc
 from pathlib import Path
 from typing import Dict, List, Any, Tuple
 import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
 from datasets import load_dataset
 import psutil
 import subprocess
@@ -123,6 +123,43 @@ def load_fp16_model(model_path: str):
     return model, tokenizer
 
 
+def apply_bnb_quantization(model_path: str, save_path: str):
+    """Apply BitsAndBytesConfig 4-bit quantization as fallback."""
+    print(f"Applying BitsAndBytesConfig NF4 quantization to {model_path}")
+    
+    # Configure quantization
+    quantization_config = BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_quant_type="nf4",
+        bnb_4bit_compute_dtype=torch.float16,
+        bnb_4bit_use_double_quant=True,
+    )
+    
+    # Load model with quantization
+    tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+    
+    model = AutoModelForCausalLM.from_pretrained(
+        model_path,
+        quantization_config=quantization_config,
+        device_map="auto",
+        torch_dtype=torch.float16,
+        trust_remote_code=True
+    )
+    
+    # Save model and tokenizer
+    os.makedirs(save_path, exist_ok=True)
+    model.save_pretrained(save_path)
+    tokenizer.save_pretrained(save_path)
+    
+    print(f"BnB quantized model saved to {save_path}")
+    
+    # Clean up
+    del model
+    reset_memory()
+
+
 def apply_awq_quantization(model_path: str, save_path: str):
     """Apply AWQ 4-bit quantization."""
     if not AWQ_AVAILABLE:
@@ -130,13 +167,19 @@ def apply_awq_quantization(model_path: str, save_path: str):
     
     print(f"Applying AWQ quantization to {model_path}")
     
-    # Load model for quantization
-    model = AutoAWQForCausalLM.from_pretrained(
-        model_path, 
-        safetensors=True,
-        device_map="auto"
-    )
-    tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+    try:
+        # Load model for quantization
+        model = AutoAWQForCausalLM.from_pretrained(
+            model_path, 
+            safetensors=True,
+            device_map="auto",
+            trust_remote_code=True
+        )
+        tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+    except Exception as e:
+        print(f"AWQ doesn't support this model: {e}")
+        print("Falling back to BitsAndBytesConfig 4-bit quantization...")
+        return apply_bnb_quantization(model_path, save_path)
     
     # Prepare calibration data (use a small subset of HumanEval)
     calib_data = []
@@ -190,7 +233,8 @@ def apply_gptq_quantization(model_path: str, save_path: str):
     model = AutoGPTQForCausalLM.from_pretrained(
         model_path, 
         quantize_config=quantize_config,
-        device_map="auto"
+        device_map="auto",
+        trust_remote_code=True
     )
     
     # Prepare calibration data
