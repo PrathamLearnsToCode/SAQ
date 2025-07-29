@@ -12,7 +12,7 @@ datasets==2.18.0
 
 # Core dependencies
 numpy==1.26.4
-tokenizers==0.18.0
+tokenizers==0.15.2
 
 # Tree-sitter for AST parsing (use compatible versions)
 tree-sitter==0.20.4
