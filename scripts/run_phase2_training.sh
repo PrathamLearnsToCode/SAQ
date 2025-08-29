@@ -5,10 +5,8 @@ set -e
 
 echo "Starting SAQ Phase 2 - Syntax-Aware Fine-tuning"
 
-# Create necessary directories
 mkdir -p ckpts logs
 
-# Check if Phase 1 quantized model exists
 if [ ! -d "ckpts/phi3_nf4" ]; then
     echo "Error: Quantized model from Phase 1 not found at ckpts/phi3_nf4"
     echo "Please run Phase 1 baseline experiments first"

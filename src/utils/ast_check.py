@@ -10,7 +10,6 @@ try:
     TREE_SITTER_AVAILABLE = True
 except ImportError:
     TREE_SITTER_AVAILABLE = False
-    # Don't print warning by default - will fallback to ast module
 
 
 class ASTChecker:
@@ -40,7 +39,6 @@ class ASTChecker:
                 self.parser = Parser()
                 self.parser.set_language(lang)
             except (ImportError, AttributeError, TypeError):
-                # Fallback for older versions or different APIs
                 try:
                     import tree_sitter_python as tspython
                     lang = tspython.language()
@@ -51,7 +49,6 @@ class ASTChecker:
                 except:
                     raise Exception("Could not initialize tree-sitter with any method")
         except Exception as e:
-            # Silently fall back to AST - don't print warning every time
             self.use_tree_sitter = False
     
     def check_syntax(self, code: str) -> Tuple[bool, Optional[str]]:
@@ -85,7 +82,6 @@ class ASTChecker:
         try:
             tree = self.parser.parse(bytes(code, 'utf8'))
             
-            # Check for syntax errors by looking for ERROR nodes
             def has_error(node):
                 if node.type == 'ERROR':
                     return True
@@ -150,7 +146,7 @@ class ASTChecker:
                     if isinstance(node, ast.Import):
                         for alias in node.names:
                             analysis['imports'].append(alias.name)
-                    else:  # ImportFrom
+                    else:  
                         module = node.module or ''
                         for alias in node.names:
                             analysis['imports'].append(f"{module}.{alias.name}")
@@ -203,8 +199,6 @@ class ASTChecker:
         except Exception as e:
             return [{'error': str(e)}]
 
-
-# Global instance for convenience
 ast_checker = ASTChecker()
 
 

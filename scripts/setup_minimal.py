@@ -49,14 +49,14 @@ def main():
         if not check_package(pkg_name, import_name):
             missing_essential.append(pkg_name)
         else:
-            print(f"✅ {pkg_name} is available")
+            print(f"{pkg_name} is available")
     
     # Check optional packages
     for pkg_name, import_name in optional_packages:
         if not check_package(pkg_name, import_name):
             missing_optional.append(pkg_name)
         else:
-            print(f"✅ {pkg_name} is available")
+            print(f"{pkg_name} is available")
     
     # Check core packages
     core_packages = [
@@ -65,33 +65,33 @@ def main():
         ("numpy", "numpy"),
     ]
     
-    print("\n📦 Core packages status:")
+    print("\n Core packages status:")
     for pkg_name, import_name in core_packages:
         if check_package(pkg_name, import_name):
-            print(f"✅ {pkg_name} is available")
+            print(f"{pkg_name} is available")
             if pkg_name == "torch":
                 import torch
                 print(f"   - Version: {torch.__version__}")
                 print(f"   - CUDA available: {torch.cuda.is_available()}")
         else:
-            print(f"❌ {pkg_name} is missing")
+            print(f"{pkg_name} is missing")
     
     # Install missing essential packages
     if missing_essential:
-        print(f"\n🚀 Installing missing essential packages: {missing_essential}")
+        print(f"\nInstalling missing essential packages: {missing_essential}")
         for pkg in missing_essential:
             install_package(pkg)
     else:
-        print("\n✅ All essential packages are available!")
+        print("\n All essential packages are available!")
     
     # Install missing optional packages (if space allows)
     if missing_optional:
-        print(f"\n⚠️  Optional packages missing: {missing_optional}")
+        print(f"\nOptional packages missing: {missing_optional}")
         print("Attempting to install (may fail due to disk space)...")
         for pkg in missing_optional:
             install_package(pkg)
     
-    print("\n🎯 Setup complete! You can now run Phase 1 experiments.")
+    print("\n Setup complete! You can now run Phase 1 experiments.")
 
 if __name__ == "__main__":
     main() 

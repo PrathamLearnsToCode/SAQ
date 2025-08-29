@@ -94,7 +94,7 @@ def quantize_model_nf4(
     with open(os.path.join(output_path, "quantization_info.json"), "w") as f:
         json.dump(quant_info, f, indent=2)
     
-    print(f"✅ Quantization complete!")
+    print(f" Quantization complete!")
     print(f"Quantized model saved to: {output_path}")
     print(f"Quantization info saved to: {os.path.join(output_path, 'quantization_info.json')}")
     
@@ -121,7 +121,6 @@ def test_quantized_model(model_path: str, test_prompt: str = None):
         trust_remote_code=True
     )
     
-    # Generate
     inputs = tokenizer(test_prompt, return_tensors="pt")
     inputs = {k: v.to(model.device) for k, v in inputs.items()}
     
@@ -143,9 +142,9 @@ def test_quantized_model(model_path: str, test_prompt: str = None):
     full_code = test_prompt + completion
     try:
         compile(full_code, '<string>', 'exec')
-        print("✅ Generated code compiles successfully!")
+        print("Generated code compiles successfully!")
     except SyntaxError as e:
-        print(f"❌ Compilation error: {e}")
+        print(f"Compilation error: {e}")
     
     return completion
 
@@ -163,7 +162,6 @@ def main():
     
     args = parser.parse_args()
     
-    # Generate default output path if not provided
     if not args.output_path:
         model_name = os.path.basename(args.model_path).replace("/", "_")
         args.output_path = f"ckpts/{model_name}_nf4"
@@ -176,11 +174,10 @@ def main():
         compute_dtype=args.compute_dtype
     )
     
-    # Test if requested
     if args.test:
         test_quantized_model(output_path, args.test_prompt)
     
-    print(f"\n🎉 All done! Quantized model available at: {output_path}")
+    print(f"\n All done! Quantized model available at: {output_path}\n")
     print(f"\nTo evaluate the quantized model:")
     print(f"python scripts/eval_compile_pass.py --model_path {output_path} --load_in_4bit")
 

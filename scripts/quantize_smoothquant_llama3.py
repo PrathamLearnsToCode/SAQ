@@ -212,9 +212,6 @@ def apply_smoothquant_4bit(
     
     logger.info("Applying calibration-aware 4-bit quantization...")
     
-    # Configure quantization with calibration considerations
-    # This simulates SmoothQuant's approach of using calibration data
-    # to better handle activation outliers during quantization
     quantization_config = BitsAndBytesConfig(
         load_in_4bit=True,
         bnb_4bit_quant_type="nf4",  # NormalFloat4 quantization
@@ -234,13 +231,11 @@ def apply_smoothquant_4bit(
     
     logger.info(f"Model quantized. Memory usage: {get_memory_usage()} MB")
     
-    # Run calibration forward passes to stabilize quantized activations
-    # This simulates the activation smoothing aspect of SmoothQuant
     logger.info("Running calibration forward passes for activation smoothing...")
     quantized_model.eval()
     
     with torch.no_grad():
-        for i, prompt in enumerate(calibration_prompts[:20]):  # Use first 20 for warmup
+        for i, prompt in enumerate(calibration_prompts[:20]): 
             if i % 5 == 0:
                 logger.info(f"Calibration pass {i}/20")
             
@@ -273,7 +268,7 @@ def apply_smoothquant_4bit(
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
         "quantization_time_seconds": time.time() - start_time,
         "peak_memory_mb": get_memory_usage(),
-        "smoothing_factors_sample": dict(list(smoothing_factors.items())[:5])  # Sample of factors
+        "smoothing_factors_sample": dict(list(smoothing_factors.items())[:5])
     }
     
     with open(os.path.join(output_path, "quantization_info.json"), "w") as f:
@@ -368,21 +363,18 @@ def update_baseline_metrics(model_name: str, pass_rate: float, metrics_file: str
     """Update the baseline metrics file."""
     os.makedirs(os.path.dirname(metrics_file), exist_ok=True)
     
-    # Load existing metrics or create new
     if os.path.exists(metrics_file):
         with open(metrics_file, 'r') as f:
             metrics = json.load(f)
     else:
         metrics = {}
     
-    # Update metrics
     metrics[model_name] = {
         "compile_pass@1": pass_rate,
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
         "method": "SmoothQuant 4-bit"
     }
     
-    # Save updated metrics
     with open(metrics_file, 'w') as f:
         json.dump(metrics, f, indent=2)
     
@@ -400,7 +392,7 @@ def main():
     reset_memory()
     
     # Configuration
-    model_path = "microsoft/Phi-3-mini-4k-instruct"  # Use Phi-3 since it's what we have working
+    model_path = "microsoft/Phi-3-mini-4k-instruct"
     calibration_file = "splits/dev_humaneval.jsonl"
     output_path = "ckpts/phi3_smoothquant4b"
     
@@ -409,11 +401,9 @@ def main():
     logger.info(f"Output: {output_path}")
     
     try:
-        # Step 1: Load calibration data
         logger.info("Step 1: Loading calibration data")
         calibration_prompts = load_calibration_data(calibration_file, num_samples=1000)
         
-        # Step 2: Apply SmoothQuant
         logger.info("Step 2: Applying SmoothQuant 4-bit quantization")
         start_time = time.time()
         
@@ -427,15 +417,12 @@ def main():
         total_time = time.time() - start_time
         peak_memory = get_memory_usage()
         
-        # Step 3: Evaluate
         logger.info("Step 3: Evaluating compile-pass@1")
         pass_rate = evaluate_compile_pass(quantized_path, calibration_file)
         
-        # Step 4: Update metrics
         logger.info("Step 4: Updating baseline metrics")
         update_baseline_metrics("llama3_smoothquant4b", pass_rate)
         
-        # Log final results
         logger.info(f"Quantization completed successfully!")
         logger.info(f"Total time: {total_time:.2f} seconds")
         logger.info(f"Peak VRAM: {peak_memory} MB")

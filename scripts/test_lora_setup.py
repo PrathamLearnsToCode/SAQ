@@ -51,11 +51,9 @@ def test_lora_setup():
     print("Applying LoRA to model...")
     model = get_peft_model(model, lora_config)
     
-    # Print trainable parameters
     print("\nTrainable parameters info:")
     model.print_trainable_parameters()
     
-    # Count trainable parameters
     trainable_params = [p for p in model.parameters() if p.requires_grad]
     total_trainable = sum(p.numel() for p in trainable_params)
     
@@ -63,10 +61,10 @@ def test_lora_setup():
     print(f"Total trainable parameters: {total_trainable:,}")
     
     if total_trainable > 0:
-        print("✅ LoRA setup successful! Model is ready for training.")
+        print("LoRA setup successful! Model is ready for training.")
         return True
     else:
-        print("❌ LoRA setup failed! No trainable parameters found.")
+        print("LoRA setup failed! No trainable parameters found.")
         return False
 
 if __name__ == "__main__":

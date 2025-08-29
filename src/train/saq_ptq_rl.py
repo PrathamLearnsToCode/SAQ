@@ -20,7 +20,6 @@ import sys
 import logging
 from datetime import datetime
 
-# Add src to path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from reward.syntax_reward import (
     SyntaxRewardCalculator, calculate_batch_rewards, 
@@ -28,7 +27,6 @@ from reward.syntax_reward import (
 )
 from utils.py_compile_check import compile_ok
 
-# Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -401,13 +399,10 @@ class SAQTrainer:
                     seq_log_prob += seq_log_probs[t-1, seq_input_ids[t]]
             
             # REINFORCE: -log_prob * advantage
-            # Advantage is already computed with proper baseline
-            advantage = rewards[i]  # This is already advantage (reward - baseline)
+            advantage = rewards[i] 
             
             # Only accumulate loss if we have valid log probabilities
             if not torch.isnan(seq_log_prob) and not torch.isinf(seq_log_prob):
-                # REINFORCE loss: -log_prob * advantage
-                # Negative loss is normal when policy improves
                 reinforce_loss -= seq_log_prob * advantage
         
         return reinforce_loss / batch_size
@@ -684,7 +679,6 @@ def main():
         config.max_length
     )
     
-    # Start training
     trainer.train(dataset)
 
 

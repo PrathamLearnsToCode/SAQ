@@ -8,7 +8,6 @@ from enum import Enum
 import sys
 import os
 
-# Add src to path for imports
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from utils.py_compile_check import compile_ok, detailed_compile_check
 from utils.ast_check import ASTChecker, quick_syntax_check
@@ -104,7 +103,6 @@ class SyntaxRewardCalculator:
             return min(1.0, base_reward + structure_bonus)
             
         except SyntaxError:
-            # Partial parsing - try to count valid lines
             lines = code.split('\n')
             valid_lines = 0
             
@@ -154,9 +152,8 @@ class SyntaxRewardCalculator:
                     error_impact = min(3, total_lines - e.lineno + 1) / total_lines
                     return max(0.1, 1.0 - error_impact)
                 else:
-                    return 0.1  # Unknown error location
+                    return 0.1  
             
-            # Fallback: count problematic lines for other errors
             error_lines = 0
             for line in lines:
                 line = line.strip()
@@ -312,10 +309,8 @@ class SyntaxRewardCalculator:
         Returns reward based on absence of NameError/ImportError.
         """
         try:
-            # Compile first
             compiled_code = compile(code, '<string>', 'exec')
             
-            # Try to execute in restricted namespace
             safe_globals = {
                 '__builtins__': {
                     'len': len, 'range': range, 'enumerate': enumerate,

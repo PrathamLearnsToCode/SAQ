@@ -93,7 +93,7 @@ def main():
     # Download and create splits
     num_examples = download_humaneval(args.output_dir, args.sample_size)
     
-    print(f"\n✅ Successfully created HumanEval splits with {num_examples} examples")
+    print(f"\n Successfully created HumanEval splits with {num_examples} examples")
     print(f"Files created in {args.output_dir}/:")
     print(f"  - dev_humaneval.jsonl ({num_examples} examples)")
     print(f"  - test_humaneval.jsonl ({min(20, num_examples)} examples)")

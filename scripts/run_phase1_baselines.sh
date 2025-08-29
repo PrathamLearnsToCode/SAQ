@@ -5,10 +5,8 @@ set -e
 
 echo "Starting SAQ Phase 1 Baseline Experiments"
 
-# Model to use (change this as needed)
 MODEL_PATH="microsoft/Phi-3-mini-4k-instruct"
 
-# Create necessary directories
 mkdir -p ckpts results
 
 echo "Step 1: Download HumanEval dataset"
